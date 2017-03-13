@@ -128,4 +128,34 @@ gbw@gbw-pc:~/PycharmProjects/DvidSpark$ diff stack.tif stack_out.tif
 二进制文件 stack.tif 和 stack_out.tif 不同
 
 
+## 3.13
 
+###准备数据
+找了一个100*100*100的数据存在repo 09c0 中,便于测试
+
+###StackLocalMax.py
+完成StackLocalMax.py部分,感觉大部分不需要做并行啊,就是O(width/height/depth) 时间解决的
+耗时最多的部分,也就是说最需要并行化的应该在:
+``` cpp
+    /* finding local maxima for internal voxels*/			\
+    offset = area + stack->width + 1;					\
+									\
+    for (k=1; k<stack->depth - 1; k++) {				\
+      for (j=1; j<stack->height - 1; j++) {				\
+		for (i=1; i<stack->width - 1; i++) {				\
+		  if (array[offset] == 0) {					\
+		    array_out[offset] = 0;					\
+		  }								\
+		  for (c=0; c<ncon; c++) {					\
+		    ARRAY_CMP(array, array_out, offset, c,			\
+			      nboffset, neighbor, option);			\
+		  }								\
+		  offset++;							\
+		}								\
+		offset += 2;							\
+	  }									\
+	  offset += stack->width * 2;					\
+	  /*PROGRESS_REFRESH;*/						\
+	}	
+```
+回顾了下pyspark的api,明天把这部分并行化了
