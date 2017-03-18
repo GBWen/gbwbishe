@@ -159,3 +159,12 @@ gbw@gbw-pc:~/PycharmProjects/DvidSpark$ diff stack.tif stack_out.tif
 	}	
 ```
 回顾了下pyspark的api,明天把这部分并行化了
+
+3.18
+---
+Stack_Local_Max 基本完成
+和单机程序的结果一模一样,很开心,但是耗时很长,还有待优化
+输入array,array_out的初始化结果
+输出stack_out应该为1的点,结果保存到seeds.txt中
+
+
