@@ -137,26 +137,26 @@ gbw@gbw-pc:~/PycharmProjects/DvidSpark$ diff stack.tif stack_out.tif
 完成StackLocalMax.py部分,感觉大部分不需要做并行啊,就是O(width/height/depth) 时间解决的
 耗时最多的部分,也就是说最需要并行化的应该在:
 ``` cpp
-    /* finding local maxima for internal voxels*/			\
-    offset = area + stack->width + 1;					\
-									\
-    for (k=1; k<stack->depth - 1; k++) {				\
-      for (j=1; j<stack->height - 1; j++) {				\
-		for (i=1; i<stack->width - 1; i++) {				\
-		  if (array[offset] == 0) {					\
-		    array_out[offset] = 0;					\
-		  }								\
-		  for (c=0; c<ncon; c++) {					\
-		    ARRAY_CMP(array, array_out, offset, c,			\
-			      nboffset, neighbor, option);			\
-		  }								\
-		  offset++;							\
-		}								\
-		offset += 2;							\
-	  }									\
-	  offset += stack->width * 2;					\
-	  /*PROGRESS_REFRESH;*/						\
-	}	
+    /* finding local maxima for internal voxels*/     \
+    offset = area + stack->width + 1;         \
+                  \
+    for (k=1; k<stack->depth - 1; k++) {        \
+      for (j=1; j<stack->height - 1; j++) {       \
+    for (i=1; i<stack->width - 1; i++) {        \
+      if (array[offset] == 0) {         \
+        array_out[offset] = 0;          \
+      }               \
+      for (c=0; c<ncon; c++) {          \
+        ARRAY_CMP(array, array_out, offset, c,      \
+            nboffset, neighbor, option);      \
+      }               \
+      offset++;             \
+    }               \
+    offset += 2;              \
+    }                 \
+    offset += stack->width * 2;         \
+    /*PROGRESS_REFRESH;*/           \
+  } 
 ```
 回顾了下pyspark的api,明天把这部分并行化了
 
@@ -180,8 +180,8 @@ dt1d_second_m_mu16(f, sz[2] + pad * 2, d, v, z, m, 1);
 2. 转化成RDD
     data = sc.parallelize(data)
 3. 对每个list中的每个f 分别执行函数dt1d_first_m_mu16, 返回计算结果d
-	data_first = data.map(dt1d_first_m_mu16).collect()
-	dt1d_first_m_mu16基本上是照抄原函数
+  data_first = data.map(dt1d_first_m_mu16).collect()
+  dt1d_first_m_mu16基本上是照抄原函数
 这一步输出结果和单机程序一样,没什么问题
 
 但是第二个函数就和单击程序有差别了,
@@ -239,7 +239,7 @@ block: 100 * 100 * 100
 
 但是发现一个问题:
 
-```
+``` cpp
 Stack *Stack_Bwdist_L_U16(const Stack *in, Stack *out, int pad)
 {
   ASSERT(in->kind == GREY, "GREY stack only");
@@ -292,7 +292,7 @@ Stack *Stack_Bwdist_L_U16(const Stack *in, Stack *out, int pad)
 原因在:
 uint16 *out_array = (uint16 *) out->array;
 但是stack的定义:
-``` c
+``` cpp
 typedef struct
   { int      kind;
     int      width;
