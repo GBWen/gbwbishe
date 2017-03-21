@@ -208,3 +208,98 @@ data_second = data.map(dt1d_second_m_mu16).collect()
 好累,问问赵老师,会去休息啦
 
 
+## 3.21
+问题发给赵老师,他是这样回复的:
+我看了一下，程序看着没有问题，最后并行程序输出的种子点只包括了图像后面一部分，应该是哪里漏了一些数据。你可以把每一步处理后的图像存下来看看有什么不同。
+另外将这些c函数转换成并行程序其实不会有太多性能的优势。这些函数每次处理的数据很少（如只有一行或一列），这样光分布这些数据都会占用很多时间。我原来的意思是将图像分块，然后调用neutube命令行对每块图像计算种子点。这样RDD是图像分块的集合，map函数是将图像分块输入转换成种子点输出。我对Spark也不熟，但其对应的python API直观易用，对于图像分块处理这样的简单逻辑应该是很容易写的。
+分块大小
+可以以512x512x256为一块。
+
+确实是这样的,函数每次处理的数据很少（如只有一行或一列）光分布这些数据都会占用很多时间,这次分块做一下,其实比原来还容易了.
+做了一下Stack_Bwdist_L_U16_2.py
+1. 图像分块data = image2block(data)
+2. 处理data = sc.parallelize(data)
+data = data.map(dt3d_mu16).collect()
+3. 结果转化为array: data_out = block2image(data)
+
+结果是这样子的: 和原来的结果基本一致
+data: 100 * 100 * 100
+
+单机程序:
+41 30359 100853 118489 141150 148285 158183 178080 217774 227672 257468 262040 277365 287263 302337 317059 326957 346854 386548 406445 413128 426242 446139 456037 463524 485833 495731 525527 535425 544118 555322 634714 644720 654629 664634 674543 684549 694458 704464 714373 724379 734287 
+
+block: 25 * 25 * 25
+30359 100853 118489 148285 158183 161347 178080 181447 187470 207772 217770 227268 237063 267664 272139 277768 317059 326957 346854 352733 406445 413128 426242 446139 456037 473622 495223 524019 535528 544118 555320 594417 595310 604410 605308 625151 634314 644318 644331 645328 664242 665252 674257 684381 685176 763861 763957 764053 764151 764246 764344 764442 765157 765176 773970 774067 774163 774260 774358 774456 783886 783982 784079 784371 794288 65 seeds found.
+
+block: 50 * 50 * 50
+30359 100853 118489 148285 158183 161347 178080 181447 217774 227672 257468 262040 277365 287263 302337 317059 326957 346854 406445 413128 426242 446139 456037 463524 495223 524019 544118 545424 594417 595310 604410 605308 625151 634314 644320 664242 665252 684257 714173 724180 734185 41 seeds found.
+
+block: 100 * 100 * 100
+30359 100853 118489 141150 148285 158183 178080 217774 227672 257468 262040 277365 287263 302337 317059 326957 346854 386548 406445 413128 426242 446139 456037 463524 485833 495731 525527 535425 544118 555322 634714 644720 654629 664634 674543 684549 694458 704464 714373 724379 734287 41 seeds found.
+
+但是发现一个问题:
+
+```
+Stack *Stack_Bwdist_L_U16(const Stack *in, Stack *out, int pad)
+{
+  ASSERT(in->kind == GREY, "GREY stack only");
+
+  if (out == NULL) {
+    out = Make_Stack(GREY16, in->width, in->height, in->depth);
+  }
+  int i;
+
+  int nvoxel = Stack_Voxel_Number(in);
+
+  uint16 *out_array = (uint16 *) out->array;
+
+  for (i = 0; i < nvoxel; i++) {
+    out_array[i] = in->array[i];
+  }
+
+  long int sz[3];
+  sz[0] = in->width;
+  sz[1] = in->height;
+  sz[2] = in->depth;
+  //dt3d_u16(out_array, sz, pad);
+  /* The meaning of pad is different in the private function */
+
+   // FILE *stream;
+   // stream = fopen( "/home/gbw/PycharmProjects/DvidSpark/smalldata/input.txt", "w+" );
+   // fprintf(stream, "%d %d %d %d %d\n", sz[0], sz[1], sz[2], nvoxel, !pad);
+   // for (i=0;i<nvoxel;i++)
+   //      fprintf( stream, "%d ", out_array[i]);
+   // fclose(stream);
+
+   dt3d_binary_mu16(out_array, sz, !pad);
+ 
+   // FILE *fp;
+   // fp=fopen("/home/gbw/PycharmProjects/DvidSpark/smalldata/mydist.txt","r");
+   // int area = sz[0] * sz[1] * sz[2];
+   // int a;
+   // for(i=0;i<area;++i)
+   // {
+   //     fscanf(fp,"%d",&a);
+   //    out_array[i] =a;
+   // }
+   // fclose(fp);
+
+  return out;
+}
+```
+
+这里 函数dt3d_binary_mu16(out_array, sz, !pad)返回的out_array 和 最终结果返回的out->array 其实是不一样的
+原因在:
+uint16 *out_array = (uint16 *) out->array;
+但是stack的定义:
+``` c
+typedef struct
+  { int      kind;
+    int      width;
+    int      height;
+    int      depth;
+    char    *text;
+    uint8   *array;   // array of pixel values lexicographically ordered on (z,y,x,c)
+  } Stack;
+```
+这样强制类型转换真的没关系吗?
