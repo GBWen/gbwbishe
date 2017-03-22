@@ -1,24 +1,40 @@
+#### Table of contents
+- [DvidSpark](#dvidspark)
+    - [3.1](#31)
+    - [3.7](#37)
+    - [3.10](#310)
+        - [环境搭建](#)
+            - [DVID](#dvid)
+            - [Spark](#spark)
+            - [pycharm](#pycharm)
+            - [编译脚本](#)
+            - [测试脚本](#)
+    - [3.12](#312)
+    - [3.13](#313)
+    - [3.18](#318)
+    - [3.19](#319)
+    - [3.21](#321)
+    - [3.22](#322)
 # DvidSpark
 Neutu并行实现
 
 ## 3.1
 
-### 具体实现方法
 neutu的工程下文件很多,全部实现怕来不及.
 ![enter image description here](http://oa4pac8sx.bkt.clouddn.com/2017-03-12%2019:28:23%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE.png)
 想法是保留一些neutu原来的程序,我将其中耗时较多的算法函数使用spark并行实现,然后在执行到这些函数的时候调用spark­submit命令运行调用对应的算法函数,在把结果返回给neutu程序.
 
 ## 3.7
 
-### 种子点提取
+种子点提取
 runComputeSeed (zcommandine.cpp)
 
-#### 三个主要函数
+三个主要函数
 从DVID读取图片: readDvidStack 
 种子点计算: computeSeedPosition 
 建swc树,存到文件中: CreateSwc,save
 
-#### 其中耗时较多的函数,也就是需要主要实现的函数
+其中耗时较多的函数,也就是需要主要实现的函数
 computeSeedPosition (zneurontracer.cpp) 
 extractSeed 提取种子点,返回种子点个数,坐标,权重
 ->extractSeedOriginal
@@ -31,7 +47,7 @@ extractSeed 提取种子点,返回种子点个数,坐标,权重
 
 #### DVID
 
-##### dvid.sh
+dvid.sh
 
 ``` bash
 cd /home/gbw/dvid-v1.1
@@ -40,7 +56,7 @@ cd /home/gbw/dvid-v1.1
 
 #### Spark
 
-##### SparkHadoop.sh
+SparkHadoop.sh
 
 ``` bash
 cd /home/gbw/hadoop-2.7.2/sbin
@@ -51,7 +67,7 @@ cd /home/gbw/spark-1.6.2/sbin
 
 #### pycharm
 
-##### pycharm.sh
+pycharm.sh
 
 ``` bash
 cd ~/pycharm-community-4.5.5/bin/
@@ -60,7 +76,7 @@ sudo ./pycharm.sh
 
 #### 编译脚本
 
-##### build.sh
+build.sh
 
 ``` bash
 cd ~/neutu_flyem_release/NeuTu-flyem_release/neurolabi/shell/
@@ -69,7 +85,7 @@ cd ~/neutu_flyem_release/NeuTu-flyem_release/neurolabi/shell/
 
 #### 测试脚本
 
-#####test.sh
+test.sh
 
 ``` bash
 cd ~/neutu_flyem_release/build2/Download/neutube/neurolabi/build
@@ -82,7 +98,7 @@ cd ~/neutu_flyem_release/build2/Download/neutube/neurolabi/build
 
 ## 3.12
 
-### Spark demo
+Spark demo
 
 Spark,以及pycharm配置成功
 
@@ -99,7 +115,7 @@ numBs = logData.filter(lambda s: 'b' in s).count()
 print("Lines with a: %i, lines with b: %i"%(numAs, numBs))
 ```
 
-### 输出stack到文件
+输出stack到文件
 
 可以调用c_stack.cpp 中函数write
 
@@ -107,7 +123,7 @@ print("Lines with a: %i, lines with b: %i"%(numAs, numBs))
 C_Stack::write("/home/gbw/neutu_flyem_release/dist.tif", dist);
 ```
 
-### tif图片读写
+tif图片读写
 
 ``` python
 tif = TIFF.open("/home/gbw/PycharmProjects/DvidSpark/dist.tif", mode='r')
@@ -123,17 +139,17 @@ tif = TIFF.open('/home/gbw/PycharmProjects/DvidSpark/dist2.tif', mode='w')
 tif.write_image(dist)
 ```
 
-#### 存在问题
+存在问题
 gbw@gbw-pc:~/PycharmProjects/DvidSpark$ diff stack.tif stack_out.tif 
 二进制文件 stack.tif 和 stack_out.tif 不同
 
 
 ## 3.13
 
-### 准备数据
+准备数据
 找了一个100*100*100的数据存在repo 09c0 中,便于测试
 
-###StackLocalMax.py
+StackLocalMax.py
 完成StackLocalMax.py部分,感觉大部分不需要做并行啊,就是O(width/height/depth) 时间解决的
 耗时最多的部分,也就是说最需要并行化的应该在:
 ``` cpp
@@ -320,4 +336,10 @@ Stack_Local_Max2.py测试:
 3. TraceNeuron Neutu源码阅读
 4. 开题报告!!
 5. 毕设报告的系统架构和种子点提取部分
+
+
+
+
+
+
 
