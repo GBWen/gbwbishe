@@ -43,14 +43,8 @@ if sz[0] > sz[1]:
 else:
     len = sz[1]
 if sz[2] > len:
-    length = sz[2]
+    len = sz[2]
 len += pad * 2
-
-# f = np.zeros(len)
-# d = np.zeros(len)
-# m = np.zeros(len)
-# v = np.zeros(len)
-# z = np.zeros(len + 1)
 
 if pad == 1:
     data = []
