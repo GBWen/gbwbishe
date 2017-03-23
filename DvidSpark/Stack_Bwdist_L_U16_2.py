@@ -1,38 +1,8 @@
 __author__ = 'gbw'
 
-
 import os
 import sys
 import numpy as np
-
-os.environ['SPARK_HOME']="/home/gbw/spark-1.6.2"
-sys.path.append("/home/gbw/spark-1.6.2/python")
-
-try:
-    from pyspark import SparkContext
-    sc = SparkContext("local", "Stack Local Max")
-
-except ImportError as e:
-    print("Can not import Spark Modules", e)
-    sys.exit(1)
-
-file = open('/home/gbw/PycharmProjects/DvidSpark/smalldata/input.txt')
-try:
-    sizestr = file.readline()
-    sizearr = sizestr.split(' ')
-    size = []
-    for i in range(3):
-        size.append(int(sizearr[i]))
-    area = int(sizearr[3])
-    pad = int(sizearr[4])
-    row = file.readline()
-    words = row.split(' ')
-    input = []
-    for i in range(area):
-        input.append(int(words[i]))
-finally:
-     file.close()
-
 
 def image2block(data_in):
     startx = 0
@@ -284,22 +254,61 @@ def dt3d_mu16(data):
                 data[(k - pad) * sz10 + tmp_j + i] = d[k]
     return data
 
-block_size = [50, 50, 50]
-array = np.array(input)
-data = array.reshape((size[2], size[1], size[0]))
-data = image2block(data)
-sz = block_size
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("Usage: Stack_Bwdist_L_U16 <file_url> ")
+        exit(-1)
 
-UINT16_INF = 0xFFFF
-FLOAT_INF = 1E20
-data = sc.parallelize(data)
-data = data.map(dt3d_mu16).collect()
-data_out = block2image(data)
-output = data_out.reshape(area)
+    file_url = sys.argv[1]
 
-file_output = open('/home/gbw/PycharmProjects/DvidSpark/smalldata/mydist.txt', 'w')
-for i in range(area):
-    file_output.write(str(int(output[i])))
-    file_output.write(" ")
-file_output.close()
+    # file_url = "/home/gbw/PycharmProjects/DvidSpark/bigdata"
+
+    os.environ['SPARK_HOME']="/home/gbw/spark-1.6.2"
+    sys.path.append("/home/gbw/spark-1.6.2/python")
+
+    try:
+        from pyspark import SparkContext
+        sc = SparkContext("local", "Stack Local Max")
+
+    except ImportError as e:
+        print("Can not import Spark Modules", e)
+        sys.exit(1)
+
+    file = open(file_url + "/input.txt")
+    try:
+        sizestr = file.readline()
+        sizearr = sizestr.split(' ')
+        size = []
+        for i in range(3):
+            size.append(int(sizearr[i]))
+        area = int(sizearr[3])
+        pad = int(sizearr[4])
+        row = file.readline()
+        words = row.split(' ')
+        input = []
+        for i in range(area):
+            input.append(int(words[i]))
+    finally:
+         file.close()
+
+    block_size = [512, 512, 50]
+    array = np.array(input)
+    data = array.reshape((size[2], size[1], size[0]))
+    data = image2block(data)
+    sz = block_size
+
+    UINT16_INF = 0xFFFF
+    FLOAT_INF = 1E20
+    data = sc.parallelize(data)
+    data = data.map(dt3d_mu16).collect()
+    data_out = block2image(data)
+    output = data_out.reshape(area)
+
+    sc.stop()
+
+    file_output = open(file_url + "/mydist.txt", 'w')
+    for i in range(area):
+        file_output.write(str(int(output[i])))
+        file_output.write(" ")
+    file_output.close()
 

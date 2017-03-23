@@ -1,4 +1,4 @@
-#### Table of contents
+## Table of contents
 - [DvidSpark](#dvidspark)
     - [3.1](#31)
     - [3.7](#37)
@@ -15,6 +15,7 @@
     - [3.19](#319)
     - [3.21](#321)
     - [3.22](#322)
+    - [3.23](#323)
 # DvidSpark
 Neutu并行实现
 
@@ -337,6 +338,33 @@ Stack_Local_Max2.py测试:
 4. 开题报告!!
 5. 毕设报告的系统架构和种子点提取部分
 
+## 3.23
+整合了一下tz_stack_bwmorph.c 和 Stack_Bwdist_L_U16的代码
+100 * 100 * 100 小数据测试正确
+找了份1024 * 1024 * 100 的数据测试:
+一开始内存不足:
+: java.lang.OutOfMemoryError: Java heap space
+17/03/23 08:53:25 INFO MemoryStore: MemoryStore started with capacity 511.1 MB
+spark-submit 的时候 --driver-memory 4g 解决
+然后莫名其妙:
+17/03/23 10:18:30 INFO SparkContext: Successfully stopped SparkContext
+17/03/23 10:18:30 INFO ShutdownHookManager: Shutdown hook called
+17/03/23 10:18:30 INFO Executor: Finished task 0.0 in stage 0.0 (TID 0). 963 bytes result sent to driver
+17/03/23 10:18:30 INFO ShutdownHookManager: Deleting directory /tmp/spark-e70a8c41-ebad-4da4-b103-2ca758faa5c7
+17/03/23 10:18:30 INFO ShutdownHookManager: Deleting directory /tmp/spark-e70a8c41-ebad-4da4-b103-2ca758faa5c7/pyspark-ed90e801-dcf3-42de-b104-93687242b553
+17/03/23 10:18:30 ERROR Executor: Exception in task 0.0 in stage 0.0 (TID 0)
+java.lang.IllegalStateException: RpcEnv already stopped.
+  at org.apache.spark.rpc.netty.Dispatcher.postMessage(Dispatcher.scala:159)
+  at org.apache.spark.rpc.netty.Dispatcher.postOneWayMessage(Dispatcher.scala:131)
+  at org.apache.spark.rpc.netty.NettyRpcEnv.send(NettyRpcEnv.scala:192)
+  at org.apache.spark.rpc.netty.NettyRpcEndpointRef.send(NettyRpcEnv.scala:516)
+  at org.apache.spark.scheduler.local.LocalBackend.statusUpdate(LocalBackend.scala:151)
+  at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:304)
+  at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  at java.lang.Thread.run(Thread.java:745)
+
+没有很好的解决方法,明天再弄吧
 
 
 
