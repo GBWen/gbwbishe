@@ -405,7 +405,8 @@ http://stackoverflow.com/questions/39572603/using-graphframes-with-pycharm
 ```
 
 没办法,只好参照graphframe的api:
-http://graphframes.github.io/api/scala/index.html#org.graphframes.GraphFrame自己完成最小生成树算法,有待优化
+http://graphframes.github.io/api/scala/index.html#org.graphframes.GraphFrame
+自己完成最小生成树算法,有待优化
 
 
 
