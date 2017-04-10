@@ -16,6 +16,7 @@
     - [3.21](#321)
     - [3.22](#322)
     - [3.23](#323)
+    - [4.10](#410)
 # DvidSpark
 Neutu并行实现
 
@@ -365,6 +366,47 @@ java.lang.IllegalStateException: RpcEnv already stopped.
   at java.lang.Thread.run(Thread.java:745)
 
 没有很好的解决方法,明天再弄吧
+
+## 4.10
+配置graphframe 和 pycharm 环境,参照:
+http://stackoverflow.com/questions/39572603/using-graphframes-with-pycharm
+
+原来还以为可以兼容graphx的函数,可是graphx并没有python的版本,准备好的scala版本prim也就没法参考实现了
+
+```
+  //最小生成树
+  def prime[VD: ClassTag](g : Graph[VD, Double], origin: VertexId) = {
+    //初始化，其中属性为（boolean, double，Long）类型，boolean用于标记是否访问过，double为加入当前顶点的代价，Long是上一个顶点的id
+    var g2 = g.mapVertices((vid, _) => (false, if(vid == origin) 0 else Double.MaxValue, -1L))
+
+    for(i <- 1L to g.vertices.count()) {
+      //从没有访问过的顶点中找出 代价最小 的点
+      val currentVertexId = g2.vertices.filter(! _._2._1).reduce((a,b) => if (a._2._2 < b._2._2) a else b)._1
+      //更新currentVertexId邻接顶点的‘double’值
+      val newDistances = g2.aggregateMessages[(Double, Long)](
+        triplet => if(triplet.srcId == currentVertexId && !triplet.dstAttr._1) {    //只给未确定的顶点发送消息
+          triplet.sendToDst((triplet.attr, triplet.srcId))
+        },
+        (x, y) => if(x._1 < y._1) x else y ,
+        TripletFields.All
+      )
+      //newDistances.foreach(x => println("currentVertexId\t"+currentVertexId+"\t->\t"+x))
+      //更新图形
+      g2 = g2.outerJoinVertices(newDistances) {
+        case (vid, vd, Some(newSum)) => (vd._1 || vid == currentVertexId, math.min(vd._2, newSum._1), if(vd._2 <= newSum._1) vd._3 else newSum._2 )
+        case (vid, vd, None) => (vd._1|| vid == currentVertexId, vd._2, vd._3)
+      }
+      //g2.vertices.foreach(x => println("currentVertexId\t"+currentVertexId+"\t->\t"+x))
+    }
+
+    //g2
+    g.outerJoinVertices(g2.vertices)( (vid, srcAttr, dist) => (srcAttr, dist.getOrElse(false, Double.MaxValue, -1)._2, dist.getOrElse(false, Double.MaxValue, -1)._3) )
+  }
+```
+
+没办法,只好参照graphframe的api:
+http://graphframes.github.io/api/scala/index.html#org.graphframes.GraphFrame自己完成最小生成树算法,有待优化
+
 
 
 
