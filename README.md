@@ -1,4 +1,4 @@
-## Table of contents
+#### Table of contents
 - [DvidSpark](#dvidspark)
     - [3.1](#31)
     - [3.7](#37)
@@ -17,6 +17,14 @@
     - [3.22](#322)
     - [3.23](#323)
     - [4.10](#410)
+    - [4.13](#413)
+        - [总体设计](#)
+            - [3.1 架构设计](#31-)
+            - [3.2 处理逻辑](#32-)
+            - [3.3 系统模块](#33-)
+            - [3.4 算法的Spark并行化分析](#34-spark)
+                - [3.4.1 数据并行化](#341-)
+                - [3.4.2 任务并行化](#342-)
 # DvidSpark
 Neutu并行实现
 
@@ -408,7 +416,59 @@ http://stackoverflow.com/questions/39572603/using-graphframes-with-pycharm
 http://graphframes.github.io/api/scala/index.html#org.graphframes.GraphFrame
 自己完成最小生成树算法,有待优化
 
+##4.13
 
+### 总体设计
+目标是设计一个基于Spark的神经元并行重建系统.该系统以大规模光学显微镜图像为研究对象,以Spark的并行计算框架为计算平台,帮助神经科学家进行神经数据的分析,完成复杂的神经元结构自动重建工作.
+
+#### 3.1 架构设计
+系统的结构视图如图3-1所示:
+![Alt text](./architecture 3.png)
+图3-1: 系统结构视图
+
+#### 3.2 处理逻辑
+根据图3-1, 系统处理逻辑如下:
+1) 用户调用系统的用户访问接口,提交神经元重建任务.
+2) 根据用户调用的接口和输入的参数, 从DVID中加载图像数据信息.
+3) 对图像数据进行预处理, 也就是分块图像分块.
+4) 图像经过分块后,开始神经元追踪工作,神经元追踪的主要工作包括:
+   a) 图像块加载.
+   b) 提交图像块追踪子任务.
+   c) 监控子任务运行状态.
+5) Spark 平台将具体子任务调度至各个计算节点运行,所有子任务运行完成后得到各个图像块的神经元分支.
+6) 将各个神经元分支部分抽象为一张图,使用最小生成树算法，得到重建后的神经元树型结构.
+7) 输出最后结果为swc文件,并返回给用户
+
+#### 3.3 系统模块
+根据系统的结构视图,以下将对其中模块进行详细的阐述,如下图所示:
+![Alt text](./architecture2 2.png)
+图3-2: 系统的模块视图
+
+#### 3.4 算法的Spark并行化分析
+Spark的并行化主要通过建立逻辑执行图,即数据流的流向过程,然后根据逻辑执行图划分为物理执行图,来实现任务并行化,最后生成任务分配到节点执行
+
+##### 3.4.1 数据并行化 
+逻辑执行图描述的是 job 的数据流：job 会经过哪些 transformation()，中间生成哪些 RDD 及 RDD 之间的依赖关系。
+![Alt text](./逻辑图_Last.png)
+图3-3: job逻辑执行图
+
+1) 从数据源(DVID)读取数据创建最初的 RDD。
+2) 对 RDD,执行map()操作,种子点检测,得到种子点集合的RDD
+3) 对种子点集合的RDD,执行map()操作,种子点拟合,得到拟合神经元分段集合的RDD
+4) 拟合神经元分段集合的RDD,执行sortBy操作,根据拟合得分对这些神经元分段进行排序,得到排序后的神经元分段集合RDD
+5) 对每个神经元分段子集进行追踪,执行map操作,得到追踪后的神经元分支的子集合RDD
+6) 对最后的神经元分支 RDD 进行 collect() 操作，每个 partition 计算后产生结果 result
+7) 将 result 回送到 driver 端，把多个result的array合并成一个array
+
+##### 3.4.2 任务并行化
+逻辑执行图表示的是数据上的依赖关系，不是 task 的执行图。在 Hadoop 中，用户直接面对 task，mapper 和 reducer 的职责分明：一个进行分块处理，一个进行 aggregate。Hadoop 中 整个数据流是固定的，只需要填充 map() 和 reduce() 函数即可。Spark 面对的是更复杂的数据处理流程，数据依赖更加灵活，很难将数据流和物理 task 简单地统一在一起。因此 Spark 将数据流和具体 task 的执行流程分开，并设计算法将逻辑执行图转换成 task 物理执行图.
+![Alt text](./物理图_Last.png)
+图3-4: job物理执行图
+
+整个job被划分为两个stage:
+1) Stage 1 种子点提取,该 stage 里面的 task 都是  ShuffleMapTask.计算结果需要 shuffle 到下一个 stage，本质上相当于 MapReduce 中的 mapper。
+2) Stage 0 种子点追踪,该 stage 里面的 task 都是 ResultTask,ResultTask 相当于 MapReduce 中的 reducer（如果需要从 parent stage 那里 shuffle 数据）
+stage 里面 task 的数目由该 stage 最后一个 RDD 中的 partition 个数决定。
 
 
 
