@@ -253,19 +253,6 @@ def Flip_Local_Neuroseg(locseg):
     Local_Neuroseg_Top(locseg, pos)
     Set_Neuroseg_Position(locseg, pos, 0)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 def darray_sqsum(d1, length):
     result = 0.0
     for i in range(length):
@@ -423,8 +410,8 @@ def Neuroseg_Field_S_Fast(seg, field_size, field_points, field_values):
     sqrt_sqrt_scale = math.sqrt(math.sqrt(seg[7]))
     sqrt_r_scale = sqrt_r * sqrt_sqrt_scale
 
-    points = field_points
-    values = field_values
+    # points = field_points
+    # values = field_values
 
     if (coef != 0.0) & (nslice > 1):
     # memcpy(field->values + length, field->values, sizeof(double) * length);
@@ -432,13 +419,13 @@ def Neuroseg_Field_S_Fast(seg, field_size, field_points, field_values):
             field_values[length + i] = field_values[i]
 
     for i in range(length):
-        points[i][2] = z
+        field_points[i][2] = z
 
-        pt = points[i]
-        if values[i] >= 0:
+        pt = field_points[i]
+        if field_values[i] >= 0:
             pt[0] *= r_scale
             pt[1] *= r
-            values[i] *= sqrt_r_scale
+            field_values[i] *= sqrt_r_scale
         else:
             norm = math.sqrt(pt[0] * pt[0] + pt[1] * pt[1])
             alpha = norm - 1
@@ -451,28 +438,34 @@ def Neuroseg_Field_S_Fast(seg, field_size, field_points, field_values):
             elif enorm > 4.0:
                 alpha /= math.sqrt(enorm)
                 alpha += alpha
-                pt[0] *= 1.0 + alpha
-                pt[1] *= 1.0 + alpha
-        weight += math.fabs(values[i])
-        points[i] = pt
+            pt[0] *= 1.0 + alpha
+            pt[1] *= 1.0 + alpha
+        weight += math.fabs(field_values[i])
+        field_points[i] = pt
 
     for i in range(length):
-        values[i] /= weight
+        field_values[i] /= weight
 
     if (coef != 0.0) & (nslice > 1):
     # memcpy(field->values + length, field->values, sizeof(double) * length);
         for i in range(length):
             field_values[length + i] = field_values[i]
 
-    for j in range(1,nslice):
+    pointsOffset = 0
+    valuesOffset = 0
+    points = field_points
+    values = field_values
+
+    for j in range(1, nslice):
         z += z_step
         if coef != 0.0:
             r += coef
             r_scale = r * seg[7]
             sqrt_r = math.sqrt(r)
             sqrt_r_scale = sqrt_r * sqrt_sqrt_scale
-        pointsOffset = length
-        valuesOffset = length
+
+        pointsOffset += length
+        valuesOffset += length
         field_size += length
 
         for i in range(length):
@@ -481,19 +474,20 @@ def Neuroseg_Field_S_Fast(seg, field_size, field_points, field_values):
         for i in range(length):
             points[i + pointsOffset][2] = z
 
-        if j > 1:
+        if j > 0:
             for i in range(length):
                 values[i + valuesOffset] = field_values[i]
+
         if coef != 0.0:
             weight = 0.0
             for i in range(length):
                 points[i + pointsOffset][2] = z
 
-                pt = points[i]
-                if values[i] >= 0:
+                pt = points[i + pointsOffset]
+                if values[i + pointsOffset] >= 0.0:
                     pt[0] *= r_scale
                     pt[1] *= r
-                    values[i] *= sqrt_r_scale
+                    values[i + pointsOffset] *= sqrt_r_scale
                 else:
                     norm = math.sqrt(pt[0] * pt[0] + pt[1] * pt[1])
                     alpha = norm - 1
@@ -508,14 +502,23 @@ def Neuroseg_Field_S_Fast(seg, field_size, field_points, field_values):
                         alpha *= 2.0 / math.sqrt(enorm)
                     pt[0] *= 1.0 + alpha
                     pt[1] *= 1.0 + alpha
-                weight += math.fabs(values[i])
-                points[i] = pt
+                weight += math.fabs(values[i + pointsOffset])
+                points[i + pointsOffset] = pt
 
             for i in range(length):
-                values[i] /= weight
+                values[i + pointsOffset] /= weight
+
+    field_points = points
+    field_values = values
+
+    # print field_size
+    # print field_values[400:410]
+    # print field_points[400:410]
 
     if seg[6] != 0.0:
-        field_points[0] = Rotate_Z(field_points[0], field_size, seg[7], 0)
+        tmp_points = field_points.reshape(field_points.size)
+        tmp_points = Rotate_Z(field_points[0], field_size, seg[7], 0)
+        field_points = tmp_points.reshape((field_points.size / 3, 3))
 
     TZ_PI = 3.14159265358979323846264338328
     if seg[5] >= 0.2:
@@ -529,7 +532,7 @@ def Neuroseg_Field_S_Fast(seg, field_size, field_points, field_values):
         tmp_points = Rotate_XZ(tmp_points, field_size, seg[2], seg[3], 0)
         field_points = tmp_points.reshape((field_points.size / 3, 3))
 
-    return field_size,field_points,field_values
+    return field_size, field_points, field_values
 
 def Neuroseg_Bottom(seg, pos):
     pos[0] = 0.0
@@ -614,6 +617,12 @@ def Geo3d_Scalar_Field_Stack_Score(field_size, points, values, stack, z_scale, f
 
     score = 0.0
 
+    # print field_size
+    # print values[1550:1555]
+    # print points[1550:1555]
+    # print signal[1550:1555]
+
+    # print signal
 
     if (fs_n != 0):
         for j in range(fs_n):
@@ -622,9 +631,13 @@ def Geo3d_Scalar_Field_Stack_Score(field_size, points, values, stack, z_scale, f
                 d = 0.0
                 for i in range(field_size):
                     p = values[i] * signal[i]
-                    if p!= 0:
+                    if p == p:
                         d += p
                 fs_scores[j] = d
+                # print "===="
+                # print fs_scores[j]
+                # for i in range(1500,1505):
+                #     print values[i] * signal[i]
             # STACK_FIT_CORRCOEF:
             elif fs_options[j] == 1:
                 sum1 = 0
@@ -659,15 +672,260 @@ def Local_Neuroseg_Score_W(locseg, stack, z_scale, fs_n, fs_options, fs_scores):
     field_values = np.zeros(0)
     field_size, field_points, field_values = Local_Neuroseg_Field_S(locseg, field_size, field_points, field_values)
 
-    # print field_size
-    # print field_values[0:5]
-    # print field_points[0:5]
-
     score = 0.0
 
     # if (ws->mask == NULL)
     score = Geo3d_Scalar_Field_Stack_Score(field_size, field_points, field_values, stack, z_scale, fs_n, fs_options, fs_scores)
 
+    return score
+
+def Local_Neuroseg_Score_R(var, stack, fs_n, fs_options, fs_scores):
+    seg = New_Local_Neuroseg()
+    for i in range(11):
+        Local_Neuroseg_Set_Var(seg, i, var[i])
+    z_scale = var[11]
+
+    # print seg
+    score = Local_Neuroseg_Score_W(seg, stack, 1.0, fs_n, fs_options, fs_scores)
+    return score
+
+def update_variable(vs_nvar, vs_var, vs_var_index, vs_link, index, delta):
+    vs_var[vs_var_index[index]] += delta
+    if len(vs_link) != 0:
+        for i in range(vs_nvar):
+            remain = vs_link[i]
+            while remain > 0:
+                vs_var[remain % 100 - 1] = vs_var[vs_var_index[i]]
+                remain /= 100
+
+def perceptor_gradient_partial(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, stack, delta, score, fs_n, fs_options, fs_scores):
+    update_variable(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, delta)
+    right_score = Local_Neuroseg_Score_R(perceptor_vs_var, stack, fs_n, fs_options, fs_scores)
+    update_variable(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, -delta)
+    grad = (right_score - score) / delta
+
+    if grad < 0.0:
+        update_variable(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, -delta)
+        left_score = Local_Neuroseg_Score_R(perceptor_vs_var, stack, fs_n, fs_options, fs_scores)
+        if left_score < score:
+            grad = 0.0
+        else:
+            grad = (score - left_score) / delta
+        update_variable(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, delta)
+    elif grad > 0.0:
+        update_variable(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, -delta)
+        left_score = Local_Neuroseg_Score_R(perceptor_vs_var, stack, fs_n, fs_options, fs_scores)
+        if left_score > score:
+            grad = (score - left_score) / delta
+        update_variable(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, delta)
+    else:
+        update_variable(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, -delta)
+        left_score = Local_Neuroseg_Score_R(perceptor_vs_var, stack, fs_n, fs_options, fs_scores)
+        grad = (score - left_score) / delta
+        update_variable(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, index, delta)
+    return grad
+
+def Local_Neuroseg_Validate(vs_var, var_min, var_max):
+    for i in range(11):
+        if vs_var[i] < var_min[i]:
+            vs_nvar = var_min[i]
+        elif vs_var[i] > var_max[i]:
+            vs_var[i] = var_max[i]
+        if vs_var[1] < 0.0:
+            if (0.5 - vs_var[0]) / vs_var[4] > vs_var[1]:
+                vs_var[1] = (0.5 - vs_var[0]) / vs_var[4]
+
+def LINE_SEARCH(vs_nvar, vs_var, vs_var_index, vs_link, cf_varmin, cf_varmax, stack, fs_n, fs_options, fs_scores, weigh, direction, lsw_min_direction, lsw_score, lsw_alpha, lsw_start_grad, lsw_c1, lsw_ro):
+    STOP_GRADIENT = 1e-1
+    for i in range(vs_nvar):
+        if weigh.size != 0:
+            direction[i] *= weigh[i]
+
+    # print weigh
+    # print direction
+
+    sum = 0.0
+    for i in range(vs_nvar):
+        sum += direction[i] * direction[i]
+    direction_length = math.sqrt(sum)
+
+    improved = True
+
+    if direction_length > lsw_min_direction:
+        alpha = 0.0
+        org_var = np.zeros(vs_nvar)
+        for i in range(vs_nvar):
+            org_var[i] = vs_var[vs_var_index[i]]
+        start_score = lsw_score
+        alpha = lsw_alpha / direction_length
+
+        gd_dot = 0.0
+        for i in range(vs_nvar):
+            gd_dot += lsw_start_grad[i] * direction[i]
+        gd_dot_c1 = gd_dot * lsw_c1
+
+        # print start_score
+        # print org_var
+        # print gd_dot_c1
+        # print alpha
+
+        wolfe1 = 0.0
+
+        while True:
+            for i in range(vs_nvar):
+                vs_var[vs_var_index[i]] = alpha * direction[i]
+                vs_var[vs_var_index[i]] += org_var[i]
+
+            Local_Neuroseg_Validate(vs_var, cf_varmin, cf_varmax)
+
+            # print vs_var
+
+            # Variable_Set_Update_Link(Variable_Set *vs)
+            if len(vs_link) != 0:
+                for i in range(vs_nvar):
+                    remain = vs_link[i]
+                    while remain > 0:
+                        vs_var[remain % 100 - 1] = vs_var[vs_var_index[i]]
+                        remain /= 100
+
+            lsw_score = Local_Neuroseg_Score_R(vs_var, stack, fs_n, fs_options, fs_scores)
+
+            # print lsw_score
+            # print alpha, direction_length, alpha * direction_length, STOP_GRADIENT
+
+            alpha *= lsw_ro
+            if alpha * direction_length < STOP_GRADIENT:
+                for i in range(vs_nvar):
+                     vs_var[vs_var_index[i]] = org_var[i]
+                # Variable_Set_Update_Link(vs);
+                if len(vs_link) != 0:
+                    for j in range(vs_nvar):
+                        remain = vs_link[j]
+                        while remain > 0:
+                            vs_var[remain % 100 - 1] = vs_var[vs_var_index[j]]
+                            remain /= 100
+
+                lsw_score = start_score
+                improved = False
+                break
+
+            # print start_score + wolfe1
+            # print lsw_score
+
+            if alpha / lsw_ro * gd_dot_c1 > wolfe1:
+                wolfe1 = alpha / lsw_ro * gd_dot_c1
+
+            if lsw_score >= start_score + wolfe1:
+                break
+    else:
+        improved = False
+    return lsw_score, improved
+
+def Fit_Perceptor(perceptor_vs_nvar, perceptor_min_gradient, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, perceptor_delta, ws_varmin, ws_varmax, perceptor_weight, stack):
+    # New_Line_Search_Workspace
+    lsw_nvar = perceptor_vs_nvar
+    lsw_alpha = 1.0
+    lsw_ro = 0.5
+    lsw_c1 = 0.01
+    lsw_c2 = 0.3
+    lsw_grad = np.zeros(perceptor_vs_nvar)
+    lsw_start_grad = np.zeros(perceptor_vs_nvar)
+    lsw_score = float("-inf")
+
+    # Set_Line_Search_Workspace
+    lsw_alpha = 0.2
+    lsw_ro = 0.8
+    lsw_c1 = 0.01
+    lsw_c2 = 0.1
+    lsw_min_direction = perceptor_min_gradient
+
+    fs_n = 2
+    fs_options = [0, 1]
+    fs_scores = [0, 0]
+    ws_mask = []
+
+    update_direction = np.zeros(perceptor_vs_nvar)
+    perceptor_vs_var[11] = 1.0
+
+    # Perceptor_Gradient(perceptor, stack, lsw->start_grad)
+    score = Local_Neuroseg_Score_R(perceptor_vs_var, stack, fs_n, fs_options, fs_scores)
+    for i in range(perceptor_vs_nvar):
+        var_index = perceptor_vs_var_index[i]
+        # perceptor_gradient_partial(perceptor->vs, i, stack, perceptor->delta[var_index],score, perceptor->arg, perceptor->s->f);
+        lsw_start_grad[i] = perceptor_gradient_partial(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, i, stack, perceptor_delta[var_index], score, fs_n, fs_options, fs_scores)
+
+    lsw_score = Local_Neuroseg_Score_R(perceptor_vs_var, stack, fs_n, fs_options, fs_scores)
+
+    for i in range(perceptor_vs_nvar):
+        update_direction[i] = lsw_start_grad[i]
+
+    stop = False
+    iter = 0
+    succ = True
+
+
+    while stop == False:
+        direction_length = darray_norm(update_direction, perceptor_vs_nvar)
+
+        # print direction_length
+
+        if direction_length < lsw_min_direction:
+            succ = False
+        else:
+            lsw_score, succ = LINE_SEARCH(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, ws_varmin, ws_varmax, stack, fs_n, fs_options, fs_scores, perceptor_weight, update_direction, lsw_min_direction, lsw_score, lsw_alpha, lsw_start_grad, lsw_c1, lsw_ro)
+
+        if succ == False:
+            direction_length = darray_norm(lsw_start_grad, perceptor_vs_nvar)
+            if direction_length > perceptor_min_gradient:
+                for i in range(perceptor_vs_nvar):
+                    update_direction[i] = lsw_start_grad[i]
+                lsw_score, succ = LINE_SEARCH(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, ws_varmin, ws_varmax, stack, fs_n, fs_options, fs_scores, perceptor_weight, update_direction, lsw_min_direction, lsw_score, lsw_alpha, lsw_start_grad, lsw_c1, lsw_ro)
+
+        if succ == True:
+            iter += 1
+
+            # print iter, lsw_score
+
+            if iter >= 500:
+                stop = True
+            else:
+                # Perceptor_Gradient(perceptor, stack, lsw->grad);
+                score = Local_Neuroseg_Score_R(perceptor_vs_var, stack, fs_n, fs_options, fs_scores)
+                for i in range(perceptor_vs_nvar):
+                    var_index = perceptor_vs_var_index[i]
+                    # perceptor_gradient_partial(perceptor->vs, i, stack, perceptor->delta[var_index],score, perceptor->arg, perceptor->s->f);
+                    lsw_grad[i] = perceptor_gradient_partial(perceptor_vs_nvar, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, i, stack, perceptor_delta[var_index], score, fs_n, fs_options, fs_scores)
+
+                # Conjugate_Update_Direction_W(perceptor->vs->nvar, lsw->grad, lsw->start_grad, perceptor->weight, update_direction);
+                dg = np.zeros(perceptor_vs_nvar)
+                for i in range(perceptor_vs_nvar):
+                    dg[i] = lsw_grad[i] - lsw_start_grad[i]
+                sum1 = 0.0
+                sum2 = 0.0
+                for i in range(perceptor_vs_nvar):
+                    sum1 += dg[i] * lsw_grad[i]
+                for i in range(perceptor_vs_nvar):
+                    sum2 += lsw_start_grad[i] * lsw_start_grad[i]
+                beta = sum1 / sum2
+
+                # if iter == 6:
+                #     print lsw_grad
+
+                if beta < 0:
+                    beta = 0
+
+                for i in range(perceptor_vs_nvar):
+                    update_direction[i] *= beta
+                    update_direction[i] += lsw_grad[i]
+
+                # darraycpy(lsw->start_grad, lsw->grad, 0, perceptor->vs->nvar);
+                for i in range(perceptor_vs_nvar):
+                    lsw_start_grad = lsw_grad
+
+        else:
+            stop = True
+
+    score = lsw_score
     return score
 
 def Fit_Local_Neuroseg_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores, fws_pos_adjust):
@@ -697,13 +955,21 @@ def Fit_Local_Neuroseg_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores,
 
     for i in range(perceptor_vs_nvar):
         weight[i] = delta[perceptor_vs_var_index[i]]
+
     wl = darray_norm(weight, perceptor_vs_nvar)
 
     for i in range(perceptor_vs_nvar):
-        weight /= wl
+        weight[i] /= wl
     perceptor_weight = weight
 
-    # Fit_Perceptor(perceptor, stack)
+    # print perceptor_vs_nvar
+    # print perceptor_weight
+
+    # print perceptor_vs_var
+
+    Fit_Perceptor(perceptor_vs_nvar, perceptor_min_gradient, perceptor_vs_var, perceptor_vs_var_index, perceptor_vs_link, perceptor_delta, ws_varmin, ws_varmax, perceptor_weight, stack)
+
+    # print perceptor_vs_var
 
     for i in range(LOCAL_NEUROSEG_NPARAM):
         Local_Neuroseg_Set_Var(locseg, i, perceptor_vs_var[i])
@@ -711,9 +977,11 @@ def Fit_Local_Neuroseg_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores,
     locseg[2] = Normalize_Radian(locseg[2])
     locseg[3] = Normalize_Radian(locseg[3])
 
-    locseg = [11.008722, -0.000000, 4.867409, 4.645343, 11.000000, 0.000000, 0.000000, 1.034885, 7.055716, 47.775794, 61.976532]
-    fws_n = 3
-    fws_options = np.array([0, 1, 1])
-    fws_scores = np.zeros(3)
+    # locseg = [11.008722, -0.000000, 4.867409, 4.645343, 11.000000, 0.000000, 0.000000, 1.034885, 7.055716, 47.775794, 61.976532]
+    # fws_n = 2
+    # fws_options = np.array([0, 1])
+    # fws_scores = np.zeros(2)
+    # locseg = [1.5, 0.0, 5.4415923071795866, 1.003355, 11.0, 0.0, 0.0, 1.0, 60.008049, 2.5553219999999999, 2.0158260000000001, 1.0]
 
     return Local_Neuroseg_Score_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores)
+    # print Local_Neuroseg_Score_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores)

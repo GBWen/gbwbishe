@@ -76,15 +76,21 @@ if __name__ == '__main__':
     finally:
          file.close()
 
-    fws_n = 2
-    fws_options = np.array([0, 1])
+    fws_n = 3
+    fws_options = np.array([0, 1, 1])
     fws_pos_adjust = 1
-    fws_scores = np.zeros(2)
+    fws_scores = np.zeros(3)
 
     locseg = [locseg_seg_r1, locseg_seg_c, locseg_seg_theta, locseg_seg_psi,\
                     locseg_seg_h, locseg_seg_curvature, locseg_seg_alpha, locseg_seg_scale,\
                     locseg_pos[0], locseg_pos[1], locseg_pos[2], z_scale]
 
+    # locseg = [3.464102, 0.000000, 1.100000, -1.182852, 11.000000, 0.000000, 0.000000, 1.000000, 63.084631, 71.672688, 28.657284, 1.000000]
+    # locseg = [3.464102, 0.000000, 1.100000, -1.182852, 11.000000, 0.000000, 0.000000, 1.000000, 89.057728, 83.674729, 11.643307, 1.000000]
+
+    print locseg
+
     score = Local_Neuroseg.Fit_Local_Neuroseg_W(locseg, stack, 1.0, fws_n, fws_options, fws_scores, fws_pos_adjust)
 
+    print locseg
     print score
