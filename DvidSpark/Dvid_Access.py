@@ -3,7 +3,7 @@ __author__ = 'root'
 import numpy as np
 import math
 import httplib
-from pydvid import voxels, general
+from pydvid import voxels
 import Local_Neuroseg
 
 

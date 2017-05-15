@@ -2,6 +2,7 @@ __author__ = 'root'
 
 import numpy as np
 import math
+import Dvid_Access
 
 def New_Local_Neuroseg():
     return np.zeros(11)
@@ -147,9 +148,9 @@ def Set_Neuropos(locseg, x, y, z):
     locseg[10] = z
 
 def Neuropos_Translate(pos, apos):
-    apos[0] += pos[8]
-    apos[1] += pos[9]
-    apos[2] += pos[10]
+    pos[8] += apos[0]
+    pos[9] += apos[1]
+    pos[10] += apos[2]
 
 def Set_Neuroseg_Position(locseg, pos, ref):
     Set_Neuropos(locseg, pos[0], pos[1], pos[2])
@@ -176,7 +177,15 @@ def Set_Neuroseg_Position(locseg, pos, ref):
                 axis_offset = (locseg[4] - 1.0) / 2.0
             if ref == NEUROSEG_TOP:
                 axis_offset = -(locseg[4] - 1.0) / 2.0
+
+        # print axis_offset
+        # print locseg
+        # print pos
+
         Neuroseg_Axis_Offset(locseg, axis_offset, apos)
+
+        # print apos
+
         Neuropos_Translate(locseg, apos)
 
 def Next_Local_Neuroseg(locseg1, pos_step):
@@ -252,6 +261,11 @@ def Flip_Local_Neuroseg(locseg):
     pos = np.zeros(3)
     Local_Neuroseg_Top(locseg, pos)
     Set_Neuroseg_Position(locseg, pos, 0)
+
+    TZ_PI = 3.14159265358979323846264338328
+    locseg[2] += TZ_PI
+    locseg[0] = NEUROSEG_R2(locseg)
+    locseg[1] = -locseg[1]
 
 def darray_sqsum(d1, length):
     result = 0.0
@@ -563,10 +577,10 @@ def Local_Neuroseg_Field_S(locseg, field_size, field_points, field_values):
     return field_size, field_points, field_values
 
 def Stack_Point_Sampling(stack, x, y, z):
-    width = 100
-    height = 100
-    depth = 100
-    stack_array = stack
+    # print stack.shape
+
+    width, height, depth = stack.shape
+    stack_array = stack.reshape(width * height * depth)
 
     if (x >= width - 1) | (x <= 0) | (y >= height - 1) | (y <= 0) | (z >= depth - 1) | (z <= 0):
         return np.nan
@@ -585,27 +599,26 @@ def Stack_Point_Sampling(stack, x, y, z):
         area = width * height
         offset = area * z_low + width * y_low + x_low
 
-        # stack_array = stack.reshape(width * height * depth)
-
-        sum = wx_low * float(stack_array[offset])
-        offset += 1
-        sum += wx_high * float(stack_array[offset])
-        sum *= wy_low * wz_low
-        offset += width
-        tmp_sum = wx_high * float(stack_array[offset])
-        offset -= 1
-        tmp_sum += wx_low * float(stack_array[offset])
-        sum += tmp_sum * wy_high * wz_low
-        offset += area
-        tmp_sum = wx_low * float(stack_array[offset])
-        offset += 1
-        tmp_sum += wx_high * float(stack_array[offset])
-        sum += tmp_sum * wy_high * wz_high
-        offset -= width
-        tmp_sum = wx_high * float(stack_array[offset])
-        offset -= 1
-        tmp_sum += wx_low * float(stack_array[offset])
-        sum += tmp_sum * wy_low * wz_high
+        if offset < stack_array.size:
+            sum = wx_low * float(stack_array[offset])
+            offset += 1
+            sum += wx_high * float(stack_array[offset])
+            sum *= wy_low * wz_low
+            offset += width
+            tmp_sum = wx_high * float(stack_array[offset])
+            offset -= 1
+            tmp_sum += wx_low * float(stack_array[offset])
+            sum += tmp_sum * wy_high * wz_low
+            offset += area
+            tmp_sum = wx_low * float(stack_array[offset])
+            offset += 1
+            tmp_sum += wx_high * float(stack_array[offset])
+            sum += tmp_sum * wy_high * wz_high
+            offset -= width
+            tmp_sum = wx_high * float(stack_array[offset])
+            offset -= 1
+            tmp_sum += wx_low * float(stack_array[offset])
+            sum += tmp_sum * wy_low * wz_high
 
         return sum
 
@@ -613,16 +626,15 @@ def Geo3d_Scalar_Field_Stack_Score(field_size, points, values, stack, z_scale, f
     signal = np.zeros(field_size)
     if z_scale == 1.0:
         for i in range(field_size):
+            # print i
             signal[i] = Stack_Point_Sampling(stack, points[i][0], points[i][1], points[i][2])
 
     score = 0.0
 
     # print field_size
-    # print values[1550:1555]
-    # print points[1550:1555]
-    # print signal[1550:1555]
-
-    # print signal
+    # print values[600:605]
+    # print points[600:605]
+    # print signal[600:605]
 
     if (fs_n != 0):
         for j in range(fs_n):
@@ -977,11 +989,450 @@ def Fit_Local_Neuroseg_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores,
     locseg[2] = Normalize_Radian(locseg[2])
     locseg[3] = Normalize_Radian(locseg[3])
 
-    # locseg = [11.008722, -0.000000, 4.867409, 4.645343, 11.000000, 0.000000, 0.000000, 1.034885, 7.055716, 47.775794, 61.976532]
-    # fws_n = 2
-    # fws_options = np.array([0, 1])
-    # fws_scores = np.zeros(2)
-    # locseg = [1.5, 0.0, 5.4415923071795866, 1.003355, 11.0, 0.0, 0.0, 1.0, 60.008049, 2.5553219999999999, 2.0158260000000001, 1.0]
-
     return Local_Neuroseg_Score_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores)
-    # print Local_Neuroseg_Score_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores)
+
+def Geo3d_Scalar_Field_Center(field_size, field_points, field_values, center):
+    center[0] = 0.0
+    center[1] = 0.0
+    center[2] = 0.0
+
+    for i in range(field_size):
+        center[0] += field_points[i][0]
+        center[1] += field_points[i][1]
+        center[2] += field_points[i][2]
+
+    center[0] /= field_size
+    center[1] /= field_size
+    center[2] /= field_size
+
+def Geo3d_Scalar_Field_Centroid(field_size, field_points, field_values, centroid):
+    weight = 0.0
+    centroid[0] = 0.0
+    centroid[1] = 0.0
+    centroid[2] = 0.0
+
+    for i in range(field_size):
+        if field_values[i] == field_values[i]:
+            weight += field_values[i]
+            centroid[0] += field_points[i][0] * field_values[i]
+            centroid[1] += field_points[i][1] * field_values[i]
+            centroid[2] += field_points[i][2] * field_values[i]
+
+    if weight == 0.0:
+        Geo3d_Scalar_Field_Center(field_size, field_points, field_values, centroid)
+    else:
+        centroid[0] /= weight
+        centroid[1] /= weight
+        centroid[2] /= weight
+
+def Local_Neuroseg_Position_Adjust(locseg, stack, z_scale):
+    field_size = 0
+    field_points = np.zeros(0)
+    field_values = np.zeros(0)
+    field_size, field_points, field_values = Local_Neuroseg_Field_S(locseg, field_size, field_points, field_values)
+
+    # print field_size
+
+    # Geo3d_Scalar_Field_Stack_Sampling(field, stack, z_scale, field->values);
+    # Stack_Points_Sampling(stack, Coordinate_3d_Double_Array(field->points), field->size, signal);
+    # Stack_Points_Sampling(tmp_points, field_size, field_values)
+    if z_scale == 1.0:
+        for i in range(field_size):
+            field_values[i] = Stack_Point_Sampling(stack, field_points[i][0], field_points[i][1], field_points[i][2])
+    center = np.zeros(3)
+    Geo3d_Scalar_Field_Centroid(field_size, field_points, field_values, center)
+    # center[2] -= 5
+
+    Set_Neuroseg_Position(locseg, center, 2)
+
+def field_func(x, y):
+    t = x * x + y * y
+    return (1 - t) * math.exp(-t)
+
+def NEUROSEG_PLANE_FIELD2(points, values, length, x, y, offset):
+    points[length + offset][0] = x
+    points[length + offset][1] = y
+    values[length + offset] = field_func(x, y)
+    length += 1
+    if x != 0.0:
+        points[length + offset][0] = -x
+        points[length + offset][1] = y
+        values[length + offset] = values[length - 1 + offset]
+        length += 1
+    if y != 0.0:
+        points[length + offset][0] = x
+        points[length + offset][1] = -y
+        values[length + offset] = values[length - 1 + offset]
+        length += 1
+        if x != 0.0:
+            points[length + offset][0] = -x
+            points[length + offset][1] = -y
+            values[length + offset] = values[length - 1 + offset]
+            length += 1
+    return points, values, length
+
+def Neuroseg_Field_Sp(seg, field_size, field_points, field_values):
+    NEUROSEG_DEFAULT_H = 11.0
+    NEUROSEG_SLICE_FIELD_LENGTH = 277
+    NEUROSEG_MIN_CURVATURE = 0.2
+    NEUROSEG_MAX_CURVATURE = 3.14159265358979323846264338328
+
+    # locseg[0] = locseg_seg_r1 = r + r
+    # locseg[1] = locseg_seg_c = 0.0
+    # locseg[2] = locseg_seg_theta = 0.0
+    # locseg[3] = locseg_seg_psi = 0.0
+    # locseg[4] = locseg_seg_h = 11.0
+    # locseg[5] = locseg_seg_curvature = 0.0
+    # locseg[6] = locseg_seg_alpha = 0.0
+    # locseg[7] = locseg_seg_scale = 1.0
+    # locseg_pos = np.zeros(3)
+    # locseg[8] = locseg_pos[0] = x
+    # locseg[9] = locseg_pos[1] = y
+    # locseg[10] = locseg_pos[2] = z
+
+    if (seg[0] == 0) | (seg[7] == 0):
+        return field_size, field_points, field_values
+
+    nslice = 11
+    if field_size == 0:
+        field_size = NEUROSEG_SLICE_FIELD_LENGTH * nslice
+        field_points = np.zeros((field_size, 3))
+        field_values = np.zeros(field_size)
+
+    z_start = 0.0
+    z_step = (seg[4] - 1.0) / (nslice - 1)
+    points = field_points
+    values = field_values
+    # coef = NEUROSEG_COEF(seg) * z_step
+    # if seg[4] == 1.0:
+    #     coef = seg[1]
+    # else:
+    #     if seg[1] > (0.5 - seg[0]) / (seg[4] - 1.0):
+    #         coef = seg[1]
+    #     else:
+    #         coef = (0.5 - seg[0]) / (seg[4] - 1.0)
+    # coef *= z_step
+
+    coef = NEUROSEG_COEF(seg) * z_step
+
+    r = seg[0]
+    z = z_start
+
+    field_size = 0
+    offset = 0
+
+    # print seg
+
+    for j in range(nslice):
+        y = 0.0
+        x = 0.0
+        step = 0.2
+        start = 0.2
+        end = 0.85
+
+        length = 0
+        values[length + offset] = field_func(x, y)
+        points[length + offset][0] = 0.0
+        points[length + offset][1] = 0.0
+        length += 1
+
+        for x in np.arange(start, end, step):
+            points[length + offset][0] = x
+            points[length + offset][1] = y
+            values[length + offset] = field_func(x, y)
+            length += 1
+            points[length + offset][0] = -x
+            points[length + offset][1] = y
+            values[length + offset] = values[length - 1 + offset]
+            length += 1
+
+        x = 0.0
+        for y in np.arange(start, end, step):
+            points[length + offset][0] = x
+            points[length + offset][1] = y
+            values[length + offset] = field_func(x, y)
+            length += 1
+            points[length + offset][0] = x
+            points[length + offset][1] = -y
+            values[length + offset] = values[length - 1 + offset]
+            length += 1
+
+        for y in np.arange(start, 0.45, step):
+            for x in np.arange(start, end, step):
+                points, values, length = NEUROSEG_PLANE_FIELD2(points, values, length, x, y, offset)
+
+        if y < 0.65:
+            y = 0.6
+            for x in np.arange(start, 0.65, step):
+                points, values, length = NEUROSEG_PLANE_FIELD2(points, values, length, x, y, offset)
+
+        y = 0.8
+        for x in np.arange(start, 0.45, step):
+            points, values, length = NEUROSEG_PLANE_FIELD2(points, values, length, x, y, offset)
+
+        # print field_size
+        # print values[5+offset:10+offset]
+        # print points[5+offset:10+offset]
+
+        weight = 0.0
+        for i in range(length):
+            points[i + offset][0] *= r * seg[7]
+            points[i + offset][1] *= r
+            points[i + offset][2] = z
+            weight += math.fabs(values[i + offset])
+        for i in range(length):
+            values[i + offset] /= weight
+        z += z_step
+        r += coef
+
+        # print field_size
+        # print values[5+offset:10+offset]
+        # print points[5+offset:10+offset]
+
+        # points += length
+        # values += length
+        offset += length
+        field_size += length
+
+    # print field_size
+    # print values[500:510]
+    # print points[500:510]
+
+    if seg[6] != 0.0:
+        tmp_points = field_points.reshape(field_points.size)
+        tmp_points = Rotate_Z(points, field_size, seg[6], 0)
+        field_points = tmp_points.reshape((field_points.size / 3, 3))
+
+    if seg[5] >= NEUROSEG_MIN_CURVATURE:
+        curvature = seg[5]
+        if curvature > NEUROSEG_MAX_CURVATURE:
+            curvature = NEUROSEG_MAX_CURVATURE
+
+        Geo3d_Point_Array_Bend(points, field_size, seg[4] / curvature)
+        # n = field_size
+        # c = seg[4] / curvature
+        # for i in range(n):
+        #     d = c - points[i][1]
+        #     if d == 0.0:
+        #         points[i][1] = 0.0
+        #         points[i][2] = 0.0
+        #     else:
+        #         points[i][2] /= d
+        #         points[i][1] += d - d * math.cos(points[i][2])
+        #         points[i][2] = math.sin(points[i][2])
+        #     points[i][2] *= d
+
+    if (seg[2] != 0.0) | (seg[3] != 0.0):
+        tmp_points = field_points.reshape(field_points.size)
+        tmp_points = Rotate_XZ(tmp_points, field_size, seg[2], seg[3], 0)
+        field_points = tmp_points.reshape((field_points.size / 3, 3))
+
+    return field_size, points, values
+
+def Local_Neuroseg_Field_Sp(locseg, field_size, field_points, field_values):
+    field_size, field_points, field_values = Neuroseg_Field_Sp(locseg, field_size, field_points, field_values)
+    #
+    # print field_size
+    # print field_values[500:505]
+    # print field_points[500:505]
+
+    pos = np.zeros(3)
+    local_neuroseg_field_shift(locseg, pos)
+    Geo3d_Point_Array_Translate(field_points, field_size, pos[0], pos[1], pos[2])
+    return field_size, field_points, field_values
+
+def Vector_Angle(x, y):
+    TZ_PI = 3.14159265358979323846264338328
+    TZ_PI_2 = 1.57079632679489661923132169164
+    TZ_2PI = 6.2831853071795862319959269
+
+    if x == 0.0:
+        angle = TZ_PI_2
+        if y < 0.0:
+            angle += TZ_PI
+    else:
+        angle = math.atan(y / x)
+        if x < 0.0:
+            angle += TZ_PI
+    if angle < 0.0:
+        angle += TZ_2PI
+    return angle
+
+def Geo3d_Rotate_Orientation(rtheta, rpsi, theta, psi):
+    TZ_PI_2 = 1.57079632679489661923132169164
+    GEOANGLE_COMPARE_EPS = 0.00001
+
+    sin_theta = math.sin(theta)
+    x = sin_theta * math.sin(psi)
+    y = -sin_theta * math.cos(psi)
+    z = math.sqrt(1.0 - sin_theta * sin_theta)
+    coord = np.zeros(3)
+    coord = Rotate_XZ(coord, 1, rtheta, rpsi, 0)
+    theta = math.acos(z)
+    if theta < GEOANGLE_COMPARE_EPS:
+        psi = 0.0
+    else:
+        if y >= 0:
+            theta = -theta
+            psi = Vector_Angle(x, y) - TZ_PI_2
+        else:
+            psi = Vector_Angle(x, y) - TZ_PI_2 * 3.0
+    return theta, psi
+
+def Local_Neuroseg_Orientation_Search_C(locseg, stack, z_scale, fs_n, fs_options, fs_scores):
+    TZ_PI = 3.14159265358979323846264338328
+    TZ_PI_2 = 1.57079632679489661923132169164
+    TZ_2PI = 6.2831853071795862319959269
+
+    center = np.zeros(3)
+    Local_Neuroseg_Center(locseg, center)
+
+    field_size = 0
+    field_points = np.zeros(0)
+    field_values = np.zeros(0)
+    field_size, field_points, field_values = Local_Neuroseg_Field_Sp(locseg, field_size, field_points, field_values)
+
+    # print field_size
+    # print field_values[500:505]
+    # print field_points[500:505]
+
+    fs_options = np.array([1, 0])
+    best_score = Geo3d_Scalar_Field_Stack_Score(field_size, field_points, field_values, stack, z_scale, fs_n, fs_options, fs_scores)
+    best_theta = locseg[2]
+    best_psi = locseg[3]
+
+    # print best_score, best_theta, best_psi
+
+    tmp_locseg = locseg
+    theta_range = TZ_PI * 0.75
+
+    for theta in np.arange(0.1, theta_range+0.0001, 0.2):
+
+        # print theta
+
+        step = 2.0 / locseg[4] / math.sin(theta)
+
+        psi = 0.0
+        for psi in np.arange(0.0, TZ_2PI, step):
+            tmp_locseg[2] = theta
+            tmp_locseg[3] = psi
+
+            # if (theta == 0.1) & (psi == 0.0):
+            #     print tmp_locseg[2:4]
+
+            tmp_locseg[2], tmp_locseg[3] = Geo3d_Rotate_Orientation(locseg[2], locseg[3], tmp_locseg[2], tmp_locseg[3])
+
+            # if (theta == 0.1) & (psi == 0.0):
+            #     print tmp0_locseg[2:4]
+
+            Set_Neuroseg_Position(tmp_locseg, center, 2)
+
+            # if (theta == 0.1) & (psi == 0.0):
+            #     print tmp_locseg[2:4]
+            #     print center
+
+            Local_Neuroseg_Field_Sp(tmp_locseg, field_size, field_points, field_values)
+
+            score = Geo3d_Scalar_Field_Stack_Score(field_size, field_points, field_values, stack, z_scale, fs_n, fs_options, fs_scores)
+
+            if score > best_score:
+                best_theta = tmp_locseg[2]
+                best_psi = tmp_locseg[3]
+                best_score = score
+
+            # print theta, psi, score
+
+    locseg[2] = best_theta
+    locseg[3] = best_psi
+
+    # print best_theta, best_psi
+    # print locseg
+
+    # print center
+    # print locseg
+
+    Set_Neuroseg_Position(locseg, center, 2)
+
+    # print locseg
+
+    # print best_score
+
+    return best_score
+
+def Local_Neuroseg_Optimize_W(locseg, stack, z_scale, option):
+    fs_n = 2
+    fs_options = np.array([0, 1])
+    fs_pos_adjust = 1
+    fs_scores = np.zeros(2)
+
+    # print locseg
+    # stack = stack.reshape(int(width), int(height), int(depth))
+
+    for i in range(fs_pos_adjust):
+        Local_Neuroseg_Position_Adjust(locseg, stack, z_scale)
+
+    Local_Neuroseg_Orientation_Search_C(locseg, stack, z_scale, fs_n, fs_options, fs_scores)
+
+    if option <= 1:
+        for i in range(1):
+            Local_Neuroseg_Position_Adjust(locseg, stack, z_scale)
+
+    score = Fit_Local_Neuroseg_W(locseg, stack, z_scale, fs_n, fs_options, fs_scores, fs_pos_adjust)
+
+    return score
+
+def Spark_Optimize(ball):
+    fs_n = 2
+    fs_options = np.array([0, 1])
+    fs_pos_adjust = 1
+    fs_scores = np.zeros(2)
+
+    x = ball[0]
+    y = ball[1]
+    z = ball[2]
+    r = ball[3]
+
+    locseg = New_Local_Neuroseg()
+    Set_Local_Neuroseg(locseg, x, y, z, r)
+
+    ball = np.zeros(4)
+    Local_Neuroseg_Ball_Bound(locseg, ball)
+    stack = Dvid_Access.readStack(ball[0], ball[1], ball[2], ball[3])
+
+    box = np.zeros(6)
+    box[0] = math.floor(ball[0] - ball[3])
+    box[1] = math.floor(ball[1] - ball[3])
+    box[2] = math.floor(ball[2] - ball[3])
+    box[3] = math.ceil(ball[0] + ball[3])
+    box[4] = math.ceil(ball[1] + ball[3])
+    box[5] = math.ceil(ball[2] + ball[3])
+    width = box[3] - box[0]
+    height = box[4] - box[1]
+    depth = box[5] - box[2]
+    stack = stack.reshape(int(width), int(height), int(depth))
+
+    score = -1.0
+
+    if stack.size > 0:
+        stack_offset = np.zeros(3)
+        stack_offset[0] = math.floor(x - r)
+        stack_offset[1] = math.floor(y - r)
+        stack_offset[2] = math.floor(z - r)
+
+        Dvid_Access.registerToRawStack(stack_offset, locseg)
+
+        Local_Neuroseg_Optimize_W(locseg, stack, 1.0, 0)
+
+        Flip_Local_Neuroseg(locseg)
+        Fit_Local_Neuroseg_W(locseg, stack, 1.0, fs_n, fs_options, fs_scores, fs_pos_adjust)
+        Flip_Local_Neuroseg(locseg)
+        Fit_Local_Neuroseg_W(locseg, stack, 1.0, fs_n, fs_options, fs_scores, fs_pos_adjust)
+        Dvid_Access.registerToStack(stack_offset, locseg)
+
+        score = fs_scores[0]
+
+    return score
+
+
+
+
