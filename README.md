@@ -25,9 +25,10 @@
             - [3.4 算法的Spark并行化分析](#34-spark)
                 - [3.4.1 数据并行化](#341-)
                 - [3.4.2 任务并行化](#342-)
+    - [5.16](#516)
 # DvidSpark
 Neutu并行实现
-
+ 
 ## 3.1
 
 neutu的工程下文件很多,全部实现怕来不及.
@@ -471,5 +472,42 @@ Spark的并行化主要通过建立逻辑执行图,即数据流的流向过程,�
 stage 里面 task 的数目由该 stage 最后一个 RDD 中的 partition 个数决定。
 
 参考 https://www.kancloud.cn/kancloud/spark-internals/45240
+
+## 5.16
+服务器上运行DvidSpark
+root@10.214.0.195
+ssh xen21
+首先ssh跳板机Front ==> root@Front:
+再ssh xen21 ==> root@xen21:
+想往上传东西需要先scp到跳板机，再上传到xen21
+
+遇到一些坑：
+1) Spark启动的时候：
+java.net.UnknownHostException: xen21: xen21: unknown error  at java.net.Inet
+at java.net.InetAddress.getLocalHost(InetAddress.java:1505)
+发现是解析不了localhost，hostname 查看本机名称为xen21, 需要在/etc/hosts中配置xen21对应本机IP
+
+2)spark-submit  提交spark任务的时候
+ImportError: No module named Local_Neuroseg
+明明在Main.py里面有import Local_Neuroseg, 却说找不到这个模块, 应该是环境变量什么的没配置好，搞了半天，最后突发奇想到Main.py 所在文件夹下spark-submit就好了，想想应该是import指的是相对路径，但是正确的解决方法还是没找到，先运行吧，以后再想办法科学的解决
+
+3) 这个服务器连不到外网啊，安装python第三方包岂不是要麻烦死了
+ping 10.10.5.7　ping通
+ping 10.5.1.7　ping通
+vpn-connect -c 连我的vpn，这样就能连外网啦
+
+TODO:
+测试性能：
+种子点提取: image block => seeds
+拟合: [(x, y, z, r) ... (x, y, z, r)] => [(score, [locseg]) ... (score, [locseg])]
+追踪: [(score, [locseg]) ... (score, [locseg])] => [([locseg ... locseg]) ... ([locseg ... locseg])]
+seeds 存到HDFS or DVID中
+追踪结果 存到HDFS or DVID中
+
+
+	
+
+
+
 
 
