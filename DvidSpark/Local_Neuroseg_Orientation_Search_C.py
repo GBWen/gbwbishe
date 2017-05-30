@@ -121,7 +121,7 @@ def Set_Neuroseg_Position(center,  locseg_seg_h, seg_theta, seg_psi, ref, Neurop
 
 # def Local_Neuroseg_Field_Sp():
 
-def field_func(x, y):
+def TZ_PIunc(x, y):
     t = x * x + y * y
     return (1 - t) * math.exp(-t)
 
@@ -210,6 +210,9 @@ def Rotate_XZ2(input, n, theta, psi, inverse):
             offset += 3
     return output
 
+def field_func(x, y):
+    t = x * x + y * y
+    return (1 - t) * math.exp(-t)
 
 def Neuroseg_Field_Sp(seg_r1, seg_scale, seg_h, seg_c, seg_alpha, seg_curvature, seg_theta, seg_psi, field_size, field_points, field_values):
     NEUROSEG_DEFAULT_H = 11.0

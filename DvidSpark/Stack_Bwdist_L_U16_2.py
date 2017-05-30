@@ -159,13 +159,16 @@ def dt1d_second_m_mu16(f, n, d, v, z, m, sqr_field):
 
     for q in range(int(v[0]) + 1, n):
         if m[q] == 0:
-            s = f[q] - f[v[k]]
+            # print
+            s = f[q]
+            # print v[k]
+            s -= f[int(v[k])]
             if sqr_field == 0:
-                s *= f[q] + f[v[k]]
+                s *= f[q] + f[int(v[k])]
             s = (s / (q - v[k]) + float(q + v[k])) / 2.0
             while s <= z[k]:
                 k -= 1
-                s = f[q] - f[v[k]]
+                s = f[q] - f[int(v[k])]
                 if sqr_field == 0:
                     s *= f[q] + f[v[k]]
                 s = (s / (q - v[k]) + float(q + v[k])) / 2.0
@@ -268,7 +271,7 @@ if __name__ == '__main__':
 
     try:
         from pyspark import SparkContext
-        sc = SparkContext("local", "Stack Local Max")
+        sc = SparkContext("local", "Extract Seeds")
 
     except ImportError as e:
         print("Can not import Spark Modules", e)
@@ -291,16 +294,30 @@ if __name__ == '__main__':
     finally:
          file.close()
 
-    block_size = [512, 512, 50]
+    # print size
+
+    block_size = [25, 25, 25]
     array = np.array(input)
     data = array.reshape((size[2], size[1], size[0]))
+
+    # print type(data)
+
     data = image2block(data)
+
+    # print type(data)
+
     sz = block_size
 
     UINT16_INF = 0xFFFF
     FLOAT_INF = 1E20
     data = sc.parallelize(data)
+
+    # print type(data)
+
     data = data.map(dt3d_mu16).collect()
+
+    print type(data)
+
     data_out = block2image(data)
     output = data_out.reshape(area)
 

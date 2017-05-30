@@ -1,8 +1,13 @@
-__author__ = 'root'
+__author__ = 'gbw'
 
 import numpy as np
 import math
 import Dvid_Access
+# try:
+#     import Dvid_Access
+# except Exception,e:
+#     print 'not found Dvid_Access here.'
+#     sys.exit(1)
 
 def New_Local_Neuroseg():
     return np.zeros(11)
@@ -31,7 +36,6 @@ def Local_Neuroseg_Ball_Bound(locseg, ball):
     Local_Neuroseg_Center(locseg, ball)
     ball[3] = Neuroseg_Ball_Range(locseg) / 2.0
 
-
 def NEUROSEG_COEF(seg):
     # (((seg)->h == 1.0) ? (seg)->c : dmax2((seg)->c, (NEUROSEG_MIN_R - (seg)->r1) / ((seg)->h - 1.0)))
     ans = seg[1]
@@ -43,7 +47,8 @@ def NEUROSEG_COEF(seg):
     return ans
 
 def Next_Neuroseg(seg1, seg2, pos_step):
-    seg2 = seg1
+    for i in range(11):
+        seg2[i] = seg1[i]
     seg2[0] = seg1[0] + pos_step * NEUROSEG_COEF(seg1) * (seg1[0] - 1.0)
 
     if seg2[0] < 0.5:
@@ -51,7 +56,7 @@ def Next_Neuroseg(seg1, seg2, pos_step):
     seg2[4] = 11.0
     seg2[1] = NEUROSEG_COEF(seg2)
 
-    return seg2
+    return seg1, seg2
 
 def Rotate_XZ(input, n, theta, psi, inverse):
     output = input
@@ -137,10 +142,26 @@ def Neuropos_Absolute_Coordinate(pos, apos):
     apos[2] += pos[2]
 
 def Local_Neuroseg_Axis_Position(locseg, apos, axis_offset):
+
+    # print "Axis"
+    # print locseg
+    # print apos
+    # print axis_offset
+
     Neuroseg_Axis_Offset(locseg, axis_offset, apos)
+
+    # print apos
+
     bottom = np.zeros(3)
     Local_Neuroseg_Bottom(locseg, bottom)
+
+    # print bottom
+
     Neuropos_Absolute_Coordinate(bottom, apos)
+
+    # print "bottom"
+    # print apos
+    # print bottom
 
 def Set_Neuropos(locseg, x, y, z):
     locseg[8] = x
@@ -190,11 +211,28 @@ def Set_Neuroseg_Position(locseg, pos, ref):
 
 def Next_Local_Neuroseg(locseg1, pos_step):
     locseg2 = New_Local_Neuroseg()
-    locseg2 = Next_Neuroseg(locseg1, locseg2, pos_step)
+
+    locseg1, locseg2 = Next_Neuroseg(locseg1, locseg2, pos_step)
+
+    # print "locseg1"
+    # print locseg1
+    #
+    # print "locseg2"
+    # print locseg2
 
     bottom = np.zeros(3)
-    Local_Neuroseg_Axis_Position(locseg1, bottom, pos_step * (locseg1[0] - 1.0))
+    Local_Neuroseg_Axis_Position(locseg1, bottom, pos_step * (locseg1[4] - 1.0))
+
+    # print "bottom"
+    # print bottom
+
+    locseg2[8] = 0
+    locseg2[9] = 0
+    locseg2[10] = 0
     Set_Neuroseg_Position(locseg2, bottom, 0)
+
+    # print "ans"
+    # print locseg2
 
     return locseg2
 
@@ -232,6 +270,15 @@ def Neuroseg_Hit_Test(seg, x, y, z):
     return False
 
 def Local_Neuroseg_Hit_Test(locseg, x, y, z):
+    # print "HIT_TEST"
+    # print locseg
+    # print x, y, z
+
+    # if (x > 382.5) & (x < 382.6):
+    #     print "======="
+    #     print locseg
+    #     print x, y, z
+
     tmp_pos = np.zeros(3)
     Local_Neuroseg_Bottom(locseg, tmp_pos)
 
@@ -240,32 +287,41 @@ def Local_Neuroseg_Hit_Test(locseg, x, y, z):
     tmp_pos[2] = z - tmp_pos[2]
 
     tmp_pos = Rotate_XZ(tmp_pos, 1, locseg[2], locseg[3], 1)
-    tmp_pos = Rotate_Z(tmp_pos, 1, locseg[2], 1)
+    tmp_pos = Rotate_Z(tmp_pos, 1, locseg[6], 1)
 
+    # print Neuroseg_Hit_Test(locseg, tmp_pos[0], tmp_pos[1], tmp_pos[2])
     return Neuroseg_Hit_Test(locseg, tmp_pos[0], tmp_pos[1], tmp_pos[2])
 
 def hitTraced(locseg, m_locsegList):
     hit = False
     top = np.zeros(3)
     Local_Neuroseg_Top(locseg, top)
-    for seg in m_locsegList:
-        if (Local_Neuroseg_Hit_Test(seg, top[0], top[1], top[2])):
+
+    # print "hit?"
+    # print m_locsegList
+    # print locseg
+    # print top
+
+    for i in range(len(m_locsegList)):
+        if Local_Neuroseg_Hit_Test(m_locsegList[i], top[0], top[1], top[2]):
             hit = True
             break
+
+    # print hit
     return hit
 
 def Local_Neuroseg_Top(locseg, pos):
     Local_Neuroseg_Axis_Position(locseg, pos, locseg[4] - 1.0)
 
-def Flip_Local_Neuroseg(locseg):
+def Flip_Local_Neuroseg(seg):
     pos = np.zeros(3)
-    Local_Neuroseg_Top(locseg, pos)
-    Set_Neuroseg_Position(locseg, pos, 0)
+    Local_Neuroseg_Top(seg, pos)
+    Set_Neuroseg_Position(seg, pos, 0)
 
     TZ_PI = 3.14159265358979323846264338328
-    locseg[2] += TZ_PI
-    locseg[0] = NEUROSEG_R2(locseg)
-    locseg[1] = -locseg[1]
+    seg[2] += TZ_PI
+    seg[0] = NEUROSEG_R2(seg)
+    seg[1] = -seg[1]
 
 def darray_sqsum(d1, length):
     result = 0.0
@@ -525,10 +581,6 @@ def Neuroseg_Field_S_Fast(seg, field_size, field_points, field_values):
     field_points = points
     field_values = values
 
-    # print field_size
-    # print field_values[400:410]
-    # print field_points[400:410]
-
     if seg[6] != 0.0:
         tmp_points = field_points.reshape(field_points.size)
         tmp_points = Rotate_Z(field_points[0], field_size, seg[7], 0)
@@ -579,7 +631,8 @@ def Local_Neuroseg_Field_S(locseg, field_size, field_points, field_values):
 def Stack_Point_Sampling(stack, x, y, z):
     # print stack.shape
 
-    width, height, depth = stack.shape
+    # width, height, depth = stack.shape
+    scale, width, height, depth = stack.shape
     stack_array = stack.reshape(width * height * depth)
 
     if (x >= width - 1) | (x <= 0) | (y >= height - 1) | (y <= 0) | (z >= depth - 1) | (z <= 0):
@@ -639,6 +692,8 @@ def Geo3d_Scalar_Field_Stack_Score(field_size, points, values, stack, z_scale, f
     if (fs_n != 0):
         for j in range(fs_n):
             # STACK_FIT_DOT
+            # print j
+            # print fs_options[j]
             if fs_options[j] == 0:
                 d = 0.0
                 for i in range(field_size):
@@ -655,15 +710,17 @@ def Geo3d_Scalar_Field_Stack_Score(field_size, points, values, stack, z_scale, f
                 sum1 = 0
                 sum2 = 0
                 for i in range(field_size):
-                    sum1 += values[i]
+                    if values[i] == values[i]:
+                        sum1 += values[i]
                 for i in range(field_size):
-                    sum2 += signal[i]
+                    if signal[i] == signal[i]:
+                        sum2 += signal[i]
                 mu1 = sum1 / field_size
                 mu2 = sum2 / field_size
 
                 r = v1 = v2 = 0.0
                 for i in range(field_size):
-                    if (values[i] != 0) | (signal[i] != 0):
+                    if (values[i] == values[i]) & (signal[i] == signal[i]):
                         sd1 = values[i] - mu1
                         sd2 = signal[i] - mu2
                         r += sd1 * sd2
@@ -949,6 +1006,7 @@ def Fit_Local_Neuroseg_W(locseg, stack, z_scale, fws_n, fws_options, fws_scores,
     var = np.zeros(LOCAL_NEUROSEG_NPARAM + 1)
 
     Local_Neuroseg_Param_Array(locseg, z_scale, var)
+    # fws_options = np.array([0, 1])
 
     ws_nvar = 4
     ws_var_index = [0, 2, 3, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -1293,10 +1351,11 @@ def Local_Neuroseg_Orientation_Search_C(locseg, stack, z_scale, fs_n, fs_options
     field_size, field_points, field_values = Local_Neuroseg_Field_Sp(locseg, field_size, field_points, field_values)
 
     # print field_size
-    # print field_values[500:505]
-    # print field_points[500:505]
+    # print field_values[1650:1655]
+    # print field_points[1650:1655]
 
-    fs_options = np.array([1, 0])
+    # fs_options = np.array([0, 1])
+
     best_score = Geo3d_Scalar_Field_Stack_Score(field_size, field_points, field_values, stack, z_scale, fs_n, fs_options, fs_scores)
     best_theta = locseg[2]
     best_psi = locseg[3]
@@ -1371,68 +1430,28 @@ def Local_Neuroseg_Optimize_W(locseg, stack, z_scale, option):
     for i in range(fs_pos_adjust):
         Local_Neuroseg_Position_Adjust(locseg, stack, z_scale)
 
-    Local_Neuroseg_Orientation_Search_C(locseg, stack, z_scale, fs_n, fs_options, fs_scores)
+    # print locseg
+
+    fs_n2 = 1
+    fs_options2 = np.zeros(1)
+    fs_options2[0] = 1
+    fs_scores2 = np.zeros(1)
+
+    Local_Neuroseg_Orientation_Search_C(locseg, stack, z_scale, fs_n2, fs_options2, fs_scores2)
+
+    # print locseg
 
     if option <= 1:
         for i in range(1):
             Local_Neuroseg_Position_Adjust(locseg, stack, z_scale)
 
+    # locseg = [2.000000, 0.000000, -1.500000, 0.868453, 11.000000, 0.000000, 0.000000, 1.000000, 21.714598, 14.649696, 14.713171, 1.000000]
+
     score = Fit_Local_Neuroseg_W(locseg, stack, z_scale, fs_n, fs_options, fs_scores, fs_pos_adjust)
 
+    # print locseg
+    # print score
+
+    # print fs_scores[1]
     return score
-
-def Spark_Optimize(ball):
-    fs_n = 2
-    fs_options = np.array([0, 1])
-    fs_pos_adjust = 1
-    fs_scores = np.zeros(2)
-
-    x = ball[0]
-    y = ball[1]
-    z = ball[2]
-    r = ball[3]
-
-    locseg = New_Local_Neuroseg()
-    Set_Local_Neuroseg(locseg, x, y, z, r)
-
-    ball = np.zeros(4)
-    Local_Neuroseg_Ball_Bound(locseg, ball)
-    stack = Dvid_Access.readStack(ball[0], ball[1], ball[2], ball[3])
-
-    box = np.zeros(6)
-    box[0] = math.floor(ball[0] - ball[3])
-    box[1] = math.floor(ball[1] - ball[3])
-    box[2] = math.floor(ball[2] - ball[3])
-    box[3] = math.ceil(ball[0] + ball[3])
-    box[4] = math.ceil(ball[1] + ball[3])
-    box[5] = math.ceil(ball[2] + ball[3])
-    width = box[3] - box[0]
-    height = box[4] - box[1]
-    depth = box[5] - box[2]
-    stack = stack.reshape(int(width), int(height), int(depth))
-
-    score = -1.0
-
-    if stack.size > 0:
-        stack_offset = np.zeros(3)
-        stack_offset[0] = math.floor(x - r)
-        stack_offset[1] = math.floor(y - r)
-        stack_offset[2] = math.floor(z - r)
-
-        Dvid_Access.registerToRawStack(stack_offset, locseg)
-
-        Local_Neuroseg_Optimize_W(locseg, stack, 1.0, 0)
-
-        Flip_Local_Neuroseg(locseg)
-        Fit_Local_Neuroseg_W(locseg, stack, 1.0, fs_n, fs_options, fs_scores, fs_pos_adjust)
-        Flip_Local_Neuroseg(locseg)
-        Fit_Local_Neuroseg_W(locseg, stack, 1.0, fs_n, fs_options, fs_scores, fs_pos_adjust)
-        Dvid_Access.registerToStack(stack_offset, locseg)
-
-        score = fs_scores[0]
-
-    return score
-
-
-
 

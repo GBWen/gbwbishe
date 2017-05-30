@@ -22,7 +22,6 @@ def getSeeds(file_url):
             r = float(words[5])
             seed = (x, y, z, r)
             seeds.append(seed)
-    file.close()
     return seeds
 
 def writeOptimizeAns(file_url, scores):
@@ -34,7 +33,6 @@ def writeOptimizeAns(file_url, scores):
             file_output.write(" ")
         file_output.write(str(scores[i][0]))
         file_output.write("\n")
-    file_output.close()
 
 def SaveSwcFile(file_url, Neurosegs, seeds):
     n = len(Neurosegs)
@@ -70,47 +68,6 @@ def SaveSwcFile(file_url, Neurosegs, seeds):
             file_output.write("\n")
         file_output.close()
 
-def createJsonFile(address, port, uuid, gray_scale, file_url):
-    file_output = open(file_url + "/dvid.json", 'w')
-    file_output.write("{")
-    file_output.write("\n")
-    file_output.write("    \"address\": \"")
-    file_output.write(address)
-    file_output.write("\",\n")
-    file_output.write("    \"port\": ")
-    file_output.write(port)
-    file_output.write(",\n")
-    file_output.write("    \"uuid\": \"")
-    file_output.write(uuid)
-    file_output.write("\",\n")
-    file_output.write("    \"gray_scale\": \"")
-    file_output.write(gray_scale)
-    file_output.write("\"\n")
-    file_output.write("}")
-    file_output.close()
-
-def extractSeed(file_url, x, y, z, sizex, sizey, sizez):
-    extractSeedCommand = './../../miniconda2/envs/neutu-env2/bin/neutu --command --compute_seed '
-    extractSeedCommand += file_url
-    extractSeedCommand += '/dvid.json --position '
-    extractSeedCommand += str(x)
-    extractSeedCommand += ' '
-    extractSeedCommand += str(y)
-    extractSeedCommand += ' '
-    extractSeedCommand += str(z)
-    extractSeedCommand += ' --size '
-    extractSeedCommand += str(sizex)
-    extractSeedCommand += ' '
-    extractSeedCommand += str(sizey)
-    extractSeedCommand += ' '
-    extractSeedCommand += str(sizez)
-    extractSeedCommand += ' -o '
-    extractSeedCommand += file_url
-    extractSeedCommand += '/'
-    extractSeedCommand += uuid
-    extractSeedCommand += '_seeds.swc'
-    os.system(extractSeedCommand)
-    # print extractSeedCommand
 
 def fit(locseg):
     fs_n = 2
@@ -257,25 +214,14 @@ def Spark_Trace(Neuroseg):
     return m_locsegList
 
 if __name__ == '__main__':
-    if len(sys.argv) != 12:
-        print("Usage: Neuron Tracing <address> <port> <uuid> <gray_scale> <file_url> position <x> <y> <z> size <x> <y> <z>")
+    if len(sys.argv) != 5:
+        print("Usage: Neuron Tracing <address> <port> <uuid> <file_url>")
         exit(-1)
 
     address = sys.argv[1]
     port = sys.argv[2]
     uuid = sys.argv[3]
-    gray_scale = sys.argv[4]
-    file_url = sys.argv[5]
-    x = sys.argv[6]
-    y = sys.argv[7]
-    z = sys.argv[8]
-    sizex = sys.argv[9]
-    sizey = sys.argv[10]
-    sizez = sys.argv[11]
-
-    createJsonFile(address, port, uuid, gray_scale, file_url)
-
-    extractSeed(file_url, x, y, z, sizex, sizey, sizez)
+    file_url = sys.argv[4]
 
     os.environ['SPARK_HOME']="/home/gbw/spark-1.6.2"
     sys.path.append("/home/gbw/spark-1.6.2/python")
@@ -288,6 +234,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     t1 = datetime.datetime.now()
+    # print "begin:", begin
 
     # file_url = "/home/gbw/PycharmProjects/DvidSpark/seeds"
     # uuid = "ae87"
